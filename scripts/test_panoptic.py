@@ -79,9 +79,9 @@ def make_dataloader(args, config, rank, world_size):
     test_dl = data.DataLoader(test_db,
                               batch_sampler=test_sampler,
                               collate_fn=iss_collate_fn,
-                              pin_memory=True,
-                              num_workers=config.getint("num_workers"))
-
+                              pin_memory=True)
+                              #num_workers=config.getint("num_workers"))
+    
     return test_dl
 
 
@@ -180,7 +180,7 @@ def make_model(config, num_thing, num_stuff):
 
 def test(model, dataloader, **varargs):
     model.eval()
-    dataloader.batch_sampler.set_epoch(0)
+    #dataloader.batch_sampler.set_epoch(0)
 
     data_time_meter = AverageMeter(())
     batch_time_meter = AverageMeter(())

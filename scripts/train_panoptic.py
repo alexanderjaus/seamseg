@@ -90,8 +90,8 @@ def make_dataloader(args, config, rank, world_size):
     train_dl = data.DataLoader(train_db,
                                batch_sampler=train_sampler,
                                collate_fn=iss_collate_fn,
-                               pin_memory=True,
-                               num_workers=config.getint("num_workers"))
+                               pin_memory=True)
+                               #num_workers=config.getint("num_workers"))
 
     # Validation dataloader
     val_tf = ISSTransform(config.getint("shortest_size"),
@@ -104,8 +104,8 @@ def make_dataloader(args, config, rank, world_size):
     val_dl = data.DataLoader(val_db,
                              batch_sampler=val_sampler,
                              collate_fn=iss_collate_fn,
-                             pin_memory=True,
-                             num_workers=config.getint("num_workers"))
+                             pin_memory=True)
+                             #num_workers=config.getint("num_workers"))
 
     return train_dl, val_dl
 
@@ -579,12 +579,20 @@ def main(args):
         if not batch_update:
             scheduler.step(epoch)
 
+        score = validate(model, val_dataloader, config["optimizer"].getstruct("loss_weights"),
+                    device=device, summary=summary, global_step=global_step,
+                    epoch=epoch, num_epochs=total_epochs,
+                    log_interval=config["general"].getint("log_interval"),
+                    coco_gt=config["dataloader"]["coco_gt"],
+                    make_panoptic=panoptic_preprocessing, eval_mode=eval_mode, eval_coco=eval_coco,
+                    log_dir=args.log_dir)
         # Run training epoch
         global_step = train(model, optimizer, scheduler, train_dataloader, meters,
                             batch_update=batch_update, epoch=epoch, summary=summary, device=device,
                             log_interval=config["general"].getint("log_interval"), num_epochs=total_epochs,
                             global_step=global_step, loss_weights=config["optimizer"].getstruct("loss_weights"))
 
+        
         # Save snapshot (only on rank 0)
         if rank == 0:
             snapshot_file = path.join(args.log_dir, "model_last.pth.tar")
