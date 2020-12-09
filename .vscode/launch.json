@@ -1,0 +1,66 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Measure_Panoptic",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--gt", "/cvhci/temp/ajaus/CityTrans",
+                    "--result", "/cvhci/temp/ajaus/CityResult/"]
+        },
+        {
+            "name": "Train_Panoptic",
+            "cwd": "${workspaceFolder}/scripts",
+            "type": "python",
+            "request": "launch",
+            //"program": "${file}",
+            "postDebugTask": "kill $(ps -au | grep /home/ajaus/miniconda3/envs/seamseg/bin/python | awk {'print $2'} )",
+            "module": "torch.distributed.launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0"
+            },
+            "args": [ //"-m", "torch.distributed.launch",
+                "--nproc_per_node=1",
+                "${file}",
+                "--log_dir",
+                "~/training/debug",
+                "/home/ajaus/seamseg/scripts/configurations/vistas_r50.ini",
+                "/cvhci/temp/ajaus/MapTrans/"
+            ]
+        },
+        {
+            "name": "Test_Panoptic",
+            "cwd": "${workspaceFolder}/scripts",
+            "type": "python",
+            "request": "launch",
+            //"program": "${file}",
+            "postDebugTask": "kill $(ps -au | grep /home/ajaus/miniconda3/envs/seamseg/bin/python | awk {'print $2'} )",
+            "module": "torch.distributed.launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0"
+            },
+            "args": [ //"-m", "torch.distributed.launch",
+                "--nproc_per_node=1",
+                "${file}",
+                "--log_dir",
+                "~/training/debug",
+                "--meta",
+                "/cvhci/temp/ajaus/MapTrans/metadata.bin",
+                "/home/ajaus/seamseg/scripts/configurations/vistas_r50.ini",
+                "/home/ajaus/training/ablation/vistas_500x1000_90k_cont/model_best.pth.tar",
+                "/cvhci/temp/ajaus/PASS/Validation/7100U",
+                "~/results/debug"
+            ]
+        }
+    ]
+}

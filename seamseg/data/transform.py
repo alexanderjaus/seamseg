@@ -1,3 +1,4 @@
+from argparse import ArgumentError
 import random
 
 import numpy as np
@@ -31,13 +32,15 @@ class ISSTransform:
         be chosen at random each time `ISSTransform` is applied to an image.
     """
 
-    def __init__(self,
-                 shortest_size,
-                 longest_max_size,
-                 rgb_mean=None,
-                 rgb_std=None,
-                 random_flip=False,
-                 random_scale=None):
+    def __init__(
+        self,
+        shortest_size,
+        longest_max_size,
+        rgb_mean=None,
+        rgb_std=None,
+        random_flip=False,
+        random_scale=None,
+    ):
         self.shortest_size = shortest_size
         self.longest_max_size = longest_max_size
         self.rgb_mean = rgb_mean
@@ -66,8 +69,9 @@ class ISSTransform:
 
     def _random_target_size(self):
         if len(self.random_scale) == 2:
-            target_size = random.uniform(self.shortest_size * self.random_scale[0],
-                                         self.shortest_size * self.random_scale[1])
+            target_size = random.uniform(
+                self.shortest_size * self.random_scale[0], self.shortest_size * self.random_scale[1]
+            )
         else:
             target_sizes = [self.shortest_size * scale for scale in self.random_scale]
             target_size = random.choice(target_sizes)
@@ -145,10 +149,7 @@ class ISSTestTransform:
         Per-channel std values to use when normalizing the images, or None to disable std normalization
     """
 
-    def __init__(self,
-                 shortest_size,
-                 rgb_mean=None,
-                 rgb_std=None):
+    def __init__(self, shortest_size, rgb_mean=None, rgb_std=None):
         self.shortest_size = shortest_size
         self.rgb_mean = rgb_mean
         self.rgb_std = rgb_std
@@ -177,3 +178,66 @@ class ISSTestTransform:
         img = self._normalize_image(img)
 
         return img
+
+
+class MapillaryToTarget:
+    """Transforms data which was trained on Mapillary Vistas to Cityscapes GT"""
+
+    def __init__(self, lookup_dict, void_value=255) -> None:
+        self.void_value = void_value
+        if lookup_dict == "Cityscapes":
+            self.lookup_dict = {
+                10: 0,  # Road
+                12: 1,  # Sidewalk
+                14: 2,  # Building
+                4: 3,  # Wall
+                1: 4,  # Fence
+                48: 5,  # Pole
+                50: 5,  # Pole
+                51: 6,  # Traffic light
+                49: 7,  # Traffic sign
+                52: 7,  # Traffic sign
+                53: 7,  # Traffic sign
+                22: 8,  # Vegetation
+                21: 9,  # Terain
+                19: 10,  # Sky
+                31: 11,  # Person
+                32: 12,  # Rider
+                33: 12,  # Rider
+                34: 12,  # Rider
+                58: 13,  # Car
+                63: 14,  # Truck
+                57: 15,  # Bus
+                61: 16,  # other vehicle --> train
+                60: 17,  # motorcycle
+                55: 18,  # bike
+            }
+
+        elif type(lookup_dict) is dict:
+            self.lookup_dict = lookup_dict
+
+        else:
+            raise ArgumentError(
+                "Need to provid a lookup dictionary to map values between Mapilary output of Net to target"
+            )
+
+    def _func_mapper(self, val: int):
+        if val in self.lookup_dict:
+            return self.lookup_dict[val]
+        else:
+            return self.void_value
+
+    def __call__(self, input_dict):
+        cpu_res_out = dict([(key, val.cpu()) for (key, val) in input_dict.items()])
+        cpu_res_out["cls_pred"] = cpu_res_out["cls_pred"].apply_(self._func_mapper)
+
+        # Remove bounding boxex predicting void things
+        void_msk = cpu_res_out["cls_pred"] == self.void_value
+        cpu_res_out["cls_pred"] = cpu_res_out["cls_pred"][~void_msk]
+        cpu_res_out["bbx_pred"] = cpu_res_out["bbx_pred"][~void_msk]
+        cpu_res_out["msk_pred"] = cpu_res_out["msk_pred"][~void_msk]
+        cpu_res_out["obj_pred"] = cpu_res_out["obj_pred"][~void_msk]
+
+        cpu_res_out["sem_pred"] = cpu_res_out["sem_pred"].apply_(self._func_mapper)
+
+        return cpu_res_out

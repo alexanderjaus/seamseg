@@ -1,11 +1,44 @@
 import glob
 from itertools import chain
+import os
 from os import path
 
+import torch
 import numpy as np
 import torch.utils.data as data
 import umsgpack
 from PIL import Image
+
+
+class ResultDataset(data.Dataset):
+    """Small Dataset which iterates over results"""
+
+    def __init__(self, root_dir, transform=None, file_suffix=None) -> None:
+        super().__init__()
+        self.root_dir = root_dir
+        self.transform = transform
+        self.element_list = os.listdir(root_dir)
+        self.nof_elements = len(self.element_list)
+        self.dtype = ".".join(self.element_list[0].split(".")[1:])
+        self.file_suffiz = file_suffix
+
+    def __getitem__(self, idx):
+        if type(idx) is str:
+            file = torch.load(
+                path.join(self.root_dir, idx) + (self.file_suffiz or "") + "." + self.dtype
+            )
+        elif type(idx) is int:
+            file = torch.load(path.join(self.root_dir, self.element_list[idx]))
+        else:
+            raise IndexError("Expect type string or int as index, got {}".format(type(idx)))
+
+        if self.transform is not None:
+            return self.transform(file)
+        else:
+            return file
+
+    def __len__(self) -> int:
+        return self.nof_elements
 
 
 class ISSDataset(data.Dataset):
@@ -24,11 +57,10 @@ class ISSDataset(data.Dataset):
         Transformer function applied to the loaded entries to prepare them for pytorch. This should be callable as
         `transform(img, msk, cat, cls)`, where:
             - `img` is a PIL.Image with `mode="RGB"`, containing the RGB data
-            - `msk` is a list of PIL.Image with `mode="L"`, containing the instance segmentation masks
-            - `cat` is a list containing the instance id to class id mapping
-            - `cls` is an integer specifying a requested class for class-uniform sampling, or None
+            - `msk` is a list of PIL.apply_(self._func_mapper)ifying a requested class for class-uniform sampling, or None
 
     """
+
     _IMG_DIR = "img"
     _MSK_DIR = "msk"
     _LST_DIR = "lst"
@@ -73,7 +105,9 @@ class ISSDataset(data.Dataset):
         elif path.exists(img_file + ".jpg"):
             img_file = img_file + ".jpg"
         else:
-            raise IOError("Cannot find any image for id {} in {}".format(img_desc["id"], self._img_dir))
+            raise IOError(
+                "Cannot find any image for id {} in {}".format(img_desc["id"], self._img_dir)
+            )
         img = Image.open(img_file).convert(mode="RGB")
 
         # Load all masks
@@ -176,18 +210,24 @@ class ISSTestDataset(data.Dataset):
         # Find all images
         self._images = []
         for img_path in chain(
-                *(glob.iglob(path.join(self.in_dir, '**', ext), recursive=True) for ext in ISSTestDataset._EXTENSIONS)):
+            *(
+                glob.iglob(path.join(self.in_dir, "**", ext), recursive=True)
+                for ext in ISSTestDataset._EXTENSIONS
+            )
+        ):
             _, name_with_ext = path.split(img_path)
             idx, _ = path.splitext(name_with_ext)
 
             with Image.open(img_path) as img_raw:
                 size = (img_raw.size[1], img_raw.size[0])
 
-            self._images.append({
-                "idx": idx,
-                "path": img_path,
-                "size": size,
-            })
+            self._images.append(
+                {
+                    "idx": idx,
+                    "path": img_path,
+                    "size": size,
+                }
+            )
 
     @property
     def img_sizes(self):
