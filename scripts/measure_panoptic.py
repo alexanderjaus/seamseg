@@ -1,11 +1,10 @@
 import argparse
-import configparser
+from os import path
 from seamseg.data.dataset import ISSTestDataset
 
 import torch
 from seamseg.data import (
     ISSTransform,
-    ISSTestTransform,
     ISSDataset,
     ResultDataset,
     MapillaryToTarget,
@@ -17,29 +16,50 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("--gt", help="Path to the ground truth root data dir", type=str)
 parser.add_argument(
-    "--result", help="Path the results of the source folder of the results", type=str
+    "--target", help="Path the results of the source folder of the results", type=str
 )
 parser.add_argument(
-    "--conf", help="Path to the config file to read in the configs for panoptic", type=str
+    "--result", help="Path to the config file to read in the configs for panoptic", type=str
 )
+
+
+def func_mapper(self, eval_mode: str, val: int):
+    if eval_mode == "things":
+        converted_value = val + self.vistas_stuff
+    elif eval_mode == "stuff":
+        converted_value = val
+    else:
+        raise ArgumentError(
+            "eval_mode must be either 'things' or 'stuff', got {}".format(eval_mode)
+        )
+
+    if converted_value in self.lookup_dict:
+        return self.lookup_dict[converted_value]
+    else:
+        return self.void_value
 
 
 def main(args):
-    # config = configparser.ConfigParser()
-    # config.read(args.conf)
 
     transform = ISSTransform(shortest_size=512, longest_max_size=1024)
 
-    trans_map_vista = MapillaryToTarget(void_value=255)
+    trans_map_vista = MapillaryToTarget(lookup_dict="Cityscapes", void_value=255)
 
     gt_dataset = ISSDataset(args.gt, "val", transform)
     num_stuff = gt_dataset.num_stuff
     num_classes = gt_dataset.num_categories
 
-    res_dataset = ResultDataset(args.result, transform=trans_map_vista, file_suffix="_leftImg8bit")
+    vistas_num_stuff = 28
+
+    res_dataset = ResultDataset(args.target, transform=None, file_suffix="_leftImg8bit")
+
+    panoptic_buffer = torch.zeros(4, num_classes, dtype=torch.double)
 
     # Iterate over the whole dataset
     for i in range(len(gt_dataset)):
+
+        if i % 10 == 0:
+            print(f"Processing image {i} of {len(gt_dataset)}")
 
         gt_out = gt_dataset[i]
         msk_gt = gt_out["msk"].cpu()
@@ -56,19 +76,42 @@ def main(args):
         cat_gt = cat_gt[~iscrowd]
 
         res_out = res_dataset[gt_out["idx"]]
-        panoptic_preprocessing = PanopticPreprocessing()
-        panoptic_out = panoptic_preprocessing(
-            res_out["sem_pred"].cpu(),
-            res_out["bbx_pred"].cpu(),
-            res_out["cls_pred"].cpu(),
-            res_out["obj_pred"].cpu(),
-            res_out["msk_pred"].cpu(),
-            num_stuff,
+        panoptic_merge = PanopticPreprocessing()
+
+        panoptic_result = panoptic_merge(
+            res_out["sem_pred"],
+            res_out["bbx_pred"],
+            res_out["cls_pred"],
+            res_out["obj_pred"],
+            res_out["msk_pred"],
+            vistas_num_stuff,
         )
 
-        stats = panoptic_stats(msk_gt, cat_gt, panoptic_out, num_classes, num_stuff)
+        # Convert results to common ground truth --> Enjoy panoptic quality
+        transformer = MapillaryToTarget(lookup_dict="Cityscapes")
+        panoptic_result = transformer(panoptic_result)
 
-    print(len(panoptic_out))
+        stats = panoptic_stats(msk_gt, cat_gt, panoptic_result, num_classes, num_stuff)
+        panoptic_buffer += torch.stack(stats, dim=0)
+        # We receive IOU, TP, FP, FN
+
+    denom = panoptic_buffer[1] + 0.5 * (panoptic_buffer[2] + panoptic_buffer[3])
+    denom[denom == 0] = 1.0
+    scores = panoptic_buffer[0] / denom
+
+    pan_score = scores.mean().item()
+    pan_score_stuff = scores[:num_stuff].mean().item()
+    pan_score_thing = scores[num_stuff:].mean().item()
+
+    with open(path.join(args.result, "panotic.txt"), "w") as f:
+        f.write(f"panoptic: {pan_score}\n")
+        f.write(f"panoptic_stuff: {pan_score_stuff}\n")
+        f.write(f"panoptic_thing: {pan_score_thing}\n")
+        f.write("\n\n\n")
+        for score in scores:
+            f.write(f"{score}\n")
+
+    return pan_score, pan_score_stuff, pan_score_thing
 
 
 if __name__ == "__main__":

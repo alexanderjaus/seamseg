@@ -8,6 +8,8 @@ from torchvision.transforms import functional as tfn
 
 from seamseg.utils.bbx import extract_boxes
 
+from functools import partial
+
 
 class ISSTransform:
     """Transformer function for instance segmentation
@@ -192,7 +194,7 @@ class MapillaryToTarget:
                 14: 2,  # Building
                 4: 3,  # Wall
                 1: 4,  # Fence
-                48: 5,  # Pole
+                48: 5,  # Pole --> Cannot map things to stuff
                 50: 5,  # Pole
                 51: 6,  # Traffic light
                 49: 7,  # Traffic sign
@@ -208,7 +210,6 @@ class MapillaryToTarget:
                 58: 13,  # Car
                 63: 14,  # Truck
                 57: 15,  # Bus
-                61: 16,  # other vehicle --> train
                 60: 17,  # motorcycle
                 55: 18,  # bike
             }
@@ -220,6 +221,8 @@ class MapillaryToTarget:
             raise ArgumentError(
                 "Need to provid a lookup dictionary to map values between Mapilary output of Net to target"
             )
+        self.vistas_stuff = 28
+        self.vistas_things = 37
 
     def _func_mapper(self, val: int):
         if val in self.lookup_dict:
@@ -227,17 +230,24 @@ class MapillaryToTarget:
         else:
             return self.void_value
 
-    def __call__(self, input_dict):
-        cpu_res_out = dict([(key, val.cpu()) for (key, val) in input_dict.items()])
-        cpu_res_out["cls_pred"] = cpu_res_out["cls_pred"].apply_(self._func_mapper)
+    def __call__(self, panoptic_input):
+        msk_pred, cat_pred, obj_pred, iscrowd_pred = panoptic_input
+        cat_pred = cat_pred.apply_(self._func_mapper)
 
-        # Remove bounding boxex predicting void things
-        void_msk = cpu_res_out["cls_pred"] == self.void_value
-        cpu_res_out["cls_pred"] = cpu_res_out["cls_pred"][~void_msk]
-        cpu_res_out["bbx_pred"] = cpu_res_out["bbx_pred"][~void_msk]
-        cpu_res_out["msk_pred"] = cpu_res_out["msk_pred"][~void_msk]
-        cpu_res_out["obj_pred"] = cpu_res_out["obj_pred"][~void_msk]
+        void_msk = cat_pred == self.void_value
+        # First void value is tolerated
+        void_msk[0] = 0
 
-        cpu_res_out["sem_pred"] = cpu_res_out["sem_pred"].apply_(self._func_mapper)
+        offset = 0
+        for i in range(len(void_msk)):
+            if void_msk[i]:
+                msk_pred[msk_pred == i] = 0
+                offset += 1
+            else:
+                msk_pred[msk_pred == i] = i - offset
 
-        return cpu_res_out
+        cat_pred = cat_pred[~void_msk]
+        obj_pred = obj_pred[~void_msk]
+        iscrowd_pred = iscrowd_pred[~void_msk]
+
+        return [msk_pred, cat_pred, obj_pred, iscrowd_pred]
