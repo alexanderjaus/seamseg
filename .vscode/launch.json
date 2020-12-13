@@ -12,7 +12,8 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["--gt", "/cvhci/temp/ajaus/CityTrans",
-                    "--result", "/cvhci/temp/ajaus/CityResult/"]
+                    "--target", "/cvhci/temp/ajaus/CityResult/",
+                    "--result", ""]
         },
         {
             "name": "Train_Panoptic",
@@ -32,6 +33,30 @@
                 "${file}",
                 "--log_dir",
                 "~/training/debug",
+                "/home/ajaus/seamseg/scripts/configurations/vistas_r50.ini",
+                "/cvhci/temp/ajaus/MapTrans/"
+            ]
+        },
+        {
+            "name": "Train_Panoptic_cont",
+            "cwd": "${workspaceFolder}/scripts",
+            "type": "python",
+            "request": "launch",
+            //"program": "${file}",
+            "postDebugTask": "kill $(ps -au | grep /home/ajaus/miniconda3/envs/seamseg/bin/python | awk {'print $2'} )",
+            "module": "torch.distributed.launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0"
+            },
+            "args": [ //"-m", "torch.distributed.launch",
+                "--nproc_per_node=1",
+                "${file}",
+                "--log_dir",
+                "~/training/debug",
+                "--resume",
+                "/home/ajaus/training/ablation/vistas_500x1000_90k_cont/model_best.pth.tar",
                 "/home/ajaus/seamseg/scripts/configurations/vistas_r50.ini",
                 "/cvhci/temp/ajaus/MapTrans/"
             ]
