@@ -1,3 +1,4 @@
+from argparse import ArgumentError
 import glob
 from itertools import chain
 import os
@@ -13,19 +14,33 @@ from PIL import Image
 class ResultDataset(data.Dataset):
     """Small Dataset which iterates over results"""
 
-    def __init__(self, root_dir, transform=None, file_suffix=None) -> None:
+    def __init__(
+        self, root_dir, transform=None, path_modifier=None, file_suffix=None, dtype=None
+    ) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.transform = transform
         self.element_list = os.listdir(root_dir)
         self.nof_elements = len(self.element_list)
-        self.dtype = ".".join(self.element_list[0].split(".")[1:])
-        self.file_suffiz = file_suffix
+        self.dtype = dtype or ".".join(self.element_list[0].split(".")[1:])
+        if path_modifier is not None:
+            if type(path_modifier) is str:
+                self.path_modifier = lambda x: path_modifier
+            elif callable(path_modifier):
+                self.path_modifier = path_modifier
+            else:
+                raise ArgumentError("Expect file suffix to be either string or callable")
+        else:
+            self.path_modifier = None
+        self.file_suffix = file_suffix
 
     def __getitem__(self, idx):
         if type(idx) is str:
             file = torch.load(
-                path.join(self.root_dir, idx) + (self.file_suffiz or "") + "." + self.dtype
+                path.join(self.root_dir, self.path_modifier(idx), idx)
+                + (self.file_suffix or "")
+                + "."
+                + self.dtype
             )
         elif type(idx) is int:
             file = torch.load(path.join(self.root_dir, self.element_list[idx]))

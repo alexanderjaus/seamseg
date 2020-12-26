@@ -11,9 +11,11 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--gt", "/cvhci/temp/ajaus/CityTrans",
-                    "--target", "/cvhci/temp/ajaus/CityResult/",
-                    "--result", ""]
+            "args": ["--result", "/home/ajaus/results/panoptic_baseline",
+                    "--gt", "/cvhci/temp/ajaus/Custom_Trans//", // --gt", "/cvhci/temp/ajaus/CityTrans",
+                    "--target", "/cvhci/temp/ajaus/RESULTS/CustResult_CityModel" //"--target", "/cvhci/temp/ajaus/RESULTS/CityResult_CityModel"]
+             ]      
+                        
         },
         {
             "name": "Train_Panoptic",
@@ -26,7 +28,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "env": {
-                "CUDA_VISIBLE_DEVICES": "0"
+                "CUDA_VISIBLE_DEVICES": "2"
             },
             "args": [ //"-m", "torch.distributed.launch",
                 "--nproc_per_node=1",
@@ -48,7 +50,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "env": {
-                "CUDA_VISIBLE_DEVICES": "0"
+                "CUDA_VISIBLE_DEVICES": "2"
             },
             "args": [ //"-m", "torch.distributed.launch",
                 "--nproc_per_node=1",
@@ -62,7 +64,7 @@
             ]
         },
         {
-            "name": "Test_Panoptic",
+            "name": "Test_Panoptic_Vistas",
             "cwd": "${workspaceFolder}/scripts",
             "type": "python",
             "request": "launch",
@@ -84,6 +86,32 @@
                 "/home/ajaus/seamseg/scripts/configurations/vistas_r50.ini",
                 "/home/ajaus/training/ablation/vistas_500x1000_90k_cont/model_best.pth.tar",
                 "/cvhci/temp/ajaus/PASS/Validation/7100U",
+                "~/results/debug"
+            ]
+        },
+        {
+            "name": "Test_Panoptic_Cityscapes",
+            "cwd": "${workspaceFolder}/scripts",
+            "type": "python",
+            "request": "launch",
+            //"program": "${file}",
+            "postDebugTask": "kill $(ps -au | grep /home/ajaus/miniconda3/envs/seamseg/bin/python | awk {'print $2'} )",
+            "module": "torch.distributed.launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "2"
+            },
+            "args": [ //"-m", "torch.distributed.launch",
+                "--nproc_per_node=1",
+                "${file}",
+                "--log_dir",
+                "~/training/debug",
+                "--meta",
+                "/cvhci/temp/ajaus/CityTrans/metadata.bin",
+                "/home/ajaus/seamseg/scripts/configurations/cityscapes_r50.ini",
+                "/home/ajaus/training/cityscapes/V1_1/model_last.pth.tar",
+                "/cvhci/temp/ajaus/PASS/Validation",
                 "~/results/debug"
             ]
         }

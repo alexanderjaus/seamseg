@@ -182,19 +182,19 @@ class ISSTestTransform:
         return img
 
 
-class MapillaryToTarget:
+class TrainedToTarget:
     """Transforms data which was trained on Mapillary Vistas to Cityscapes GT"""
 
-    def __init__(self, lookup_dict, void_value=255) -> None:
+    def __init__(self, mode, void_value=255) -> None:
         self.void_value = void_value
-        if lookup_dict == "Cityscapes":
+        if mode == "M2C":  # Mode to convert from Mapillary to Cityscapes
             self.lookup_dict = {
                 10: 0,  # Road
                 12: 1,  # Sidewalk
                 14: 2,  # Building
                 4: 3,  # Wall
                 1: 4,  # Fence
-                48: 5,  # Pole --> Cannot map things to stuff
+                48: 5,  # Pole
                 50: 5,  # Pole
                 51: 6,  # Traffic light
                 49: 7,  # Traffic sign
@@ -213,16 +213,13 @@ class MapillaryToTarget:
                 60: 17,  # motorcycle
                 55: 18,  # bike
             }
+            self.vistas_stuff = 28
+            self.vistas_things = 37
 
-        elif type(lookup_dict) is dict:
-            self.lookup_dict = lookup_dict
-
-        else:
+        elif mode is None:
             raise ArgumentError(
                 "Need to provid a lookup dictionary to map values between Mapilary output of Net to target"
             )
-        self.vistas_stuff = 28
-        self.vistas_things = 37
 
     def _func_mapper(self, val: int):
         if val in self.lookup_dict:

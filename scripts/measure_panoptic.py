@@ -7,7 +7,7 @@ from seamseg.data import (
     ISSTransform,
     ISSDataset,
     ResultDataset,
-    MapillaryToTarget,
+    TrainedToTarget,
 )
 from seamseg.utils.panoptic import panoptic_stats, PanopticPreprocessing
 
@@ -29,7 +29,7 @@ def func_mapper(self, eval_mode: str, val: int):
     elif eval_mode == "stuff":
         converted_value = val
     else:
-        raise ArgumentError(
+        raise argparse.ArgumentError(
             "eval_mode must be either 'things' or 'stuff', got {}".format(eval_mode)
         )
 
@@ -41,17 +41,22 @@ def func_mapper(self, eval_mode: str, val: int):
 
 def main(args):
 
-    transform = ISSTransform(shortest_size=512, longest_max_size=1024)
-
-    trans_map_vista = MapillaryToTarget(lookup_dict="Cityscapes", void_value=255)
+    transform = ISSTransform(shortest_size=512, longest_max_size=2621)
 
     gt_dataset = ISSDataset(args.gt, "val", transform)
     num_stuff = gt_dataset.num_stuff
     num_classes = gt_dataset.num_categories
 
     vistas_num_stuff = 28
+    city_num_stuff = 11
 
-    res_dataset = ResultDataset(args.target, transform=None, file_suffix="_leftImg8bit")
+    res_dataset = ResultDataset(
+        args.target,
+        transform=None,
+        path_modifier=lambda x: x.split("_")[0],
+        file_suffix="_leftImg8bit",
+        dtype="pth.tar",
+    )
 
     panoptic_buffer = torch.zeros(4, num_classes, dtype=torch.double)
 
@@ -84,12 +89,12 @@ def main(args):
             res_out["cls_pred"],
             res_out["obj_pred"],
             res_out["msk_pred"],
-            vistas_num_stuff,
+            city_num_stuff,
         )
 
         # Convert results to common ground truth --> Enjoy panoptic quality
-        transformer = MapillaryToTarget(lookup_dict="Cityscapes")
-        panoptic_result = transformer(panoptic_result)
+        # transformer = TrainedToTarget(lookup_dict="Cityscapes")
+        # panoptic_result = transformer(panoptic_result)
 
         stats = panoptic_stats(msk_gt, cat_gt, panoptic_result, num_classes, num_stuff)
         panoptic_buffer += torch.stack(stats, dim=0)
@@ -103,7 +108,7 @@ def main(args):
     pan_score_stuff = scores[:num_stuff].mean().item()
     pan_score_thing = scores[num_stuff:].mean().item()
 
-    with open(path.join(args.result, "panotic.txt"), "w") as f:
+    with open(path.join(args.result, "panoptic.txt"), "w") as f:
         f.write(f"panoptic: {pan_score}\n")
         f.write(f"panoptic_stuff: {pan_score_stuff}\n")
         f.write(f"panoptic_thing: {pan_score_thing}\n")
