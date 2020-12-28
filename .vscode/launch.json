@@ -12,8 +12,8 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["--result", "/home/ajaus/results/panoptic_baseline",
-                    "--gt", "/cvhci/temp/ajaus/Custom_Trans//", // --gt", "/cvhci/temp/ajaus/CityTrans",
-                    "--target", "/cvhci/temp/ajaus/RESULTS/CustResult_CityModel" //"--target", "/cvhci/temp/ajaus/RESULTS/CityResult_CityModel"]
+                    "--gt", "/cvhci/temp/ajaus/Custom_Trans/", // --gt", "/cvhci/temp/ajaus/CityTrans",
+                    "--target", "/cvhci/temp/ajaus/RESULTS/CustResult_City_tripple_res/" //"--target", "/cvhci/temp/ajaus/RESULTS/CityResult_CityModel"]
              ]      
                         
         },

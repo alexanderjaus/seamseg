@@ -23,7 +23,9 @@ class PackedSequence:
         self._tensors = tensors
 
         # Check useful properties of the sequence
-        self._compatible = _all_same([tensor.shape[1:] for tensor in self._tensors if tensor is not None])
+        self._compatible = _all_same(
+            [tensor.shape[1:] for tensor in self._tensors if tensor is not None]
+        )
         self._all_none = all([tensor is None for tensor in self._tensors])
 
     def __add__(self, other):
@@ -57,11 +59,15 @@ class PackedSequence:
         return self
 
     def cpu(self):
-        self._tensors = [
-            tensor.cpu() if tensor is not None else None
-            for tensor in self._tensors
-        ]
+        self._tensors = [tensor.cpu() if tensor is not None else None for tensor in self._tensors]
         return self
+
+    def normalize(self):
+        for i in range(len(self._tensors)):
+            if self._tensors[i] is not None:
+                self._tensors[i] = (self._tensors[i] - self._tensors[i].mean()) / self._tensors[
+                    i
+                ].std()
 
     @property
     def all_none(self):
