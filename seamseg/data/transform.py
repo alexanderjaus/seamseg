@@ -182,6 +182,53 @@ class ISSTestTransform:
         return img
 
 
+class Mapilary_output_to_city_output(object):
+    def __init__(self) -> None:
+        super().__init__()
+        # convert the relevant classes. Rest is converted to nan
+        lookup_dict = {
+            10: 0,  # road
+            12: 1,  # sidewalk
+            31: 11,  # person
+            58: 13,  # car
+        }
+        self.void_value = 255
+        values = []
+        for i in range(65):
+            if i in lookup_dict:
+                values.append(lookup_dict[i])
+            else:
+                values.append(self.void_value)
+        self.lookup_dict = dict(zip(range(65), values))
+
+        self.vistas_stuff = 28
+        self.vistas_things = 37
+
+        self.city_stuff = 11
+        self.city_things = 8
+
+    def __call__(self, inp):
+
+        # convert to cpu
+        inp = dict(
+            [(key, val.cpu()) if torch.is_tensor(val) else (key, val) for (key, val) in inp.items()]
+        )
+        inp["sem_pred"] = inp["sem_pred"].apply_(lambda x: self.lookup_dict[x])
+        inp["cls_pred"] = inp["cls_pred"].apply_(lambda x: self.lookup_dict[x + self.vistas_stuff])
+        inp["cls_pred"] = inp["cls_pred"].apply_(
+            lambda x: x - self.city_stuff if x != self.void_value else x
+        )
+
+        # remove void predictions from things stuff
+        void_msk = inp["cls_pred"] == self.void_value
+        # first void prediction is necessary
+
+        for key in ["bbx_pred", "cls_pred", "obj_pred", "msk_pred"]:
+            inp[key] = inp[key][~void_msk]
+
+        return inp
+
+
 class TrainedToTarget:
     """Transforms data which was trained on Mapillary Vistas to Cityscapes GT"""
 

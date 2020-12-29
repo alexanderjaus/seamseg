@@ -8,6 +8,7 @@ from seamseg.data import (
     ISSDataset,
     ResultDataset,
     TrainedToTarget,
+    Mapilary_output_to_city_output,
 )
 from seamseg.utils.panoptic import panoptic_stats, PanopticPreprocessing
 
@@ -50,9 +51,12 @@ def main(args):
     vistas_num_stuff = 28
     city_num_stuff = 11
 
+    map_to_city = Mapilary_output_to_city_output()
+
     res_dataset = ResultDataset(
         args.target,
-        transform=None,
+        transform=map_to_city,
+        # transform=None,
         path_modifier=lambda x: x.split("_")[0],
         file_suffix="_leftImg8bit",
         dtype="pth.tar",
