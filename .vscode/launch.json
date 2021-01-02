@@ -5,18 +5,32 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "convert resnet",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["resnet18",
+                    "/home/ajaus/pretrained_models/converted_improved_resnet",
+                    "/home/ajaus/pretrained_models/improved_resnet_bn_adjusted"
+                ]
+        },
+        {
             "name": "Measure_Panoptic",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--result", "/home/ajaus/results/panoptic_baseline",
-                    "--gt", "/cvhci/temp/ajaus/Custom_Trans//", // --gt", "/cvhci/temp/ajaus/CityTrans",
-                    //"--target", "/cvhci/temp/ajaus/RESULTS/CustResult_CityModel",
-                    "--target", "/cvhci/temp/ajaus/RESULTS/CustResult_MapModel",
-             ]      
-                        
+            "args": [
+                "--result",
+                "/home/ajaus/results/panoptic_baseline",
+                "--gt",
+                "/cvhci/temp/ajaus/Custom_Trans//", // --gt", "/cvhci/temp/ajaus/CityTrans",
+                //"--target", "/cvhci/temp/ajaus/RESULTS/CustResult_CityModel",
+                "--target",
+                "/cvhci/temp/ajaus/RESULTS/CustResult_MapModel",
+            ]
         },
         {
             "name": "Train_Panoptic",
